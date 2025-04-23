@@ -23,7 +23,25 @@ exports.signup = async (req, res) => {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
 
-    await sendEmail(email, 'Verify Your Email', `Your OTP: ${otpCode}`);
+    await sendEmail(
+      email,
+      'Verify Your Email for ProVoxHub',
+      `Your OTP code for email verification is: ${otpCode}
+
+Please use the following API endpoint to verify your email:
+
+POST /api/auth/verify-email
+
+Example request body:
+{
+  "email": "${email}",
+  "otp": "${otpCode}"
+}
+
+This OTP will expire in 10 minutes.
+`
+    );
+
     res.status(201).json({ message: 'Signup successful, verify your email' });
   } catch (err) {
     res.status(500).json({ message: 'Signup error', error: err.message });
@@ -75,7 +93,30 @@ exports.resendOtp = async (req, res) => {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
 
-    await sendEmail(email, 'New OTP', `Your OTP: ${otpCode}`);
+    await sendEmail(
+      email,
+      'New OTP from ProVoxHub',
+      `Your new OTP code is: ${otpCode}
+
+Please use the corresponding API endpoint to verify:
+
+For Email Verification:
+POST /api/auth/verify-email
+
+For Password Reset:
+POST /api/auth/reset-password
+
+Example body:
+{
+  "email": "${email}",
+  "otp": "${otpCode}",
+  "newPassword": "yourNewPasswordHere" // only required for reset-password
+}
+
+This OTP will expire in 10 minutes.
+`
+    );
+
     res.json({ message: 'OTP sent again' });
   } catch (err) {
     res.status(500).json({ message: 'Resend failed', error: err.message });
@@ -96,7 +137,26 @@ exports.forgotPassword = async (req, res) => {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
 
-    await sendEmail(email, 'Reset Password OTP', `Your OTP: ${otpCode}`);
+    await sendEmail(
+      email,
+      'Reset Your ProVoxHub Password',
+      `Your OTP for password reset is: ${otpCode}
+
+To reset your password, make a POST request to:
+
+/api/auth/reset-password
+
+Example body:
+{
+  "email": "${email}",
+  "otp": "${otpCode}",
+  "newPassword": "yourNewPasswordHere"
+}
+
+This OTP will expire in 10 minutes.
+`
+    );
+
     res.json({ message: 'OTP sent for password reset' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to send reset OTP', error: err.message });
@@ -119,6 +179,7 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Reset failed', error: err.message });
   }
 };
+
 
 
 
