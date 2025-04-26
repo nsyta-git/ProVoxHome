@@ -1,0 +1,106 @@
+/* src/index.css */
+
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Base Theme Variables (fallbacks) === */
+:root {
+  --color-primary: #3B82F6;
+  --color-secondary: #8B5CF6;
+  --color-accent: #EC4899;
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-text: #1F2937;
+  --color-border: #E5E7EB;
+  --color-placeholder: #666;
+}
+
+/* === Ellu Themes === */
+
+/* Theme 1: Vibrant Gradient */
+.theme1-light {
+  --color-primary: #3B82F6;
+  --color-secondary: #8B5CF6;
+  --color-accent: #EC4899;
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-text: #1F2937;
+  --color-border: #CBD5E1;
+}
+
+.theme1-dark {
+  --color-primary: #3B82F6;
+  --color-secondary: #8B5CF6;
+  --color-accent: #EC4899;
+  --color-background: #111827;
+  --color-surface: #1F2937;
+  --color-text: #F9FAFB;
+  --color-border: #4B5563;
+}
+
+/* Theme 2: Professional Mono + Accent */
+.theme2-light {
+  --color-primary: #0891B2;
+  --color-secondary: #0E7490;
+  --color-accent: #F59E0B;
+  --color-background: #F3F4F6;
+  --color-surface: #FFFFFF;
+  --color-text: #111827;
+  --color-border: #D1D5DB;
+}
+
+.theme2-dark {
+  --color-primary: #06B6D4;
+  --color-secondary: #0891B2;
+  --color-accent: #F59E0B;
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-text: #F8FAFC;
+  --color-border: #334155;
+}
+
+/* Theme 3: Modern Colorful */
+.theme3-light {
+  --color-primary: #8B5CF6;
+  --color-secondary: #C084FC;
+  --color-accent: #F43F5E;
+  --color-background: #FFFFFF;
+  --color-surface: #F8FAFC;
+  --color-text: #0F172A;
+  --color-border: #E2E8F0;
+}
+
+.theme3-dark {
+  --color-primary: #A78BFA;
+  --color-secondary: #C084FC;
+  --color-accent: #FB7185;
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-text: #F8FAFC;
+  --color-border: #334155;
+}
+
+/* Theme 4: Core Brand */
+.theme4-light {
+  --color-primary: #4361EE;
+  --color-secondary: #3A0CA3;
+  --color-accent: #F72585;
+  --color-background: #FFFFFF;
+  --color-surface: #F5F5F5;
+  --color-text: #212121;
+  --color-border: #E0E0E0;
+}
+
+.theme4-dark {
+  --color-primary: #5773F5;
+  --color-secondary: #4361EE;
+  --color-accent: #FF4FAB;
+  --color-background: #121212;
+  --color-surface: #1E1E1E;
+  --color-text: #E0E0E0;
+  --color-border: #2C2C2C;
+}
+
