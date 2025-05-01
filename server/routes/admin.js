@@ -1,5 +1,5 @@
 // server/routes/admin.js
-// 🔵 Full Admin Routes: Invite Admin ➔ Signup ➔ Send OTP ➔ Verify OTP ➔ Create Admin
+// 🔵 Full Admin Routes: Invite Admin ➔ Signup ➔ Send OTP ➔ Verify OTP ➔ Create Admin + Profile Verification Actions
 
 const express = require('express');
 const router = express.Router();
@@ -7,11 +7,14 @@ const jwt = require('jsonwebtoken');
 const AdminInvite = require('../models/AdminInvite');
 const PendingAdmin = require('../models/PendingAdmin');
 const Admin = require('../models/Admin');
+const PendingProfileVerification = require('../models/PendingProfileVerification');
+const UserProfile = require('../models/UserProfile');
+const Notification = require('../models/Notification');
 const sendEmail = require('../utils/sendEmail');
-const { isSuperOrAdmin } = require('../middleware/auth');
+const { isAdminOrSuperAdmin } = require('../middleware/auth');
 
 // --- Invite a New Admin (Protected Route) ---
-router.post('/invite', isSuperOrAdmin, async (req, res) => {
+router.post('/invite', isAdminOrSuperAdmin, async (req, res) => {
   const { email } = req.body;
   const creatorId = req.user.id;
 
@@ -148,8 +151,6 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 // --- Admin Login ---
-
-
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -170,10 +171,11 @@ router.post('/login', async (req, res) => {
 
     // Create JWT Token
     const token = jwt.sign(
-      { id: admin._id, role: 'admin' }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '7d' } // Token valid for 7 days
+      { userId: admin._id, role: 'admin', email: admin.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
     );
+    
 
     res.status(200).json({ token, message: 'Login successful.' });
   } catch (error) {
@@ -183,7 +185,327 @@ router.post('/login', async (req, res) => {
 });
 
 
+// 🚀🚀🚀  ➔ New Routes for Profile Verification Actions Below  ➔ 🚀🚀🚀
+
+// --- Approve Profile Verification ---
+router.post('/approve-profile/:pendingId', isAdminOrSuperAdmin, async (req, res) => {
+  try {
+    const pending = await PendingProfileVerification.findById(req.params.pendingId).populate('userProfile');
+    if (!pending) return res.status(404).json({ message: 'Pending request not found.' });
+
+    pending.status = 'approved';
+    pending.reviewedBy = req.user.id;
+    await pending.save();
+
+    pending.userProfile.isVerified = true;
+    pending.userProfile.verificationStatus = 'approved';
+    pending.userProfile.adminComment = undefined;
+    await pending.userProfile.save();
+
+    await sendEmail(
+      pending.userProfile.user.email,
+      'Profile Approved - ProVoxHome',
+      `<p>Hey ${pending.userProfile.fullName},</p>
+       <p>🎉 Congratulations! Your profile has been successfully verified.</p>
+       <p>You can now fully access all features on ProVoxHome!</p>
+       <p>Cheers,<br>ProVoxHome Team</p>`
+    );
+
+    await Notification.create({
+      user: pending.userProfile.user,
+      title: 'Profile Approved 🎉',
+      description: 'Your profile verification has been approved. Welcome aboard!',
+      type: 'profile-verification'
+    });
+
+    res.status(200).json({ message: 'Profile approved and user notified.' });
+  } catch (error) {
+    console.error('Approve Profile Error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// --- Reject Profile Verification ---
+router.post('/reject-profile/:pendingId', isAdminOrSuperAdmin, async (req, res) => {
+  const { adminComment } = req.body;
+
+  try {
+    const pending = await PendingProfileVerification.findById(req.params.pendingId).populate('userProfile');
+    if (!pending) return res.status(404).json({ message: 'Pending request not found.' });
+
+    pending.status = 'rejected';
+    pending.reviewedBy = req.user.id;
+    pending.adminComment = adminComment;
+    await pending.save();
+
+    pending.userProfile.isVerified = false;
+    pending.userProfile.verificationStatus = 'rejected';
+    pending.userProfile.adminComment = adminComment;
+    await pending.userProfile.save();
+
+    await sendEmail(
+      pending.userProfile.user.email,
+      'Profile Rejected - ProVoxHome',
+      `<p>Hey ${pending.userProfile.fullName},</p>
+       <p>😔 Unfortunately, your profile could not be verified at this time.</p>
+       <p>Reason: ${adminComment}</p>
+       <p>Please review and try again.</p>
+       <p>Cheers,<br>ProVoxHome Team</p>`
+    );
+
+    await Notification.create({
+      user: pending.userProfile.user,
+      title: 'Profile Rejected ❌',
+      description: `Your profile verification was rejected. Reason: ${adminComment}`,
+      type: 'profile-verification'
+    });
+
+    res.status(200).json({ message: 'Profile rejected and user notified.' });
+  } catch (error) {
+    console.error('Reject Profile Error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// --- Request Changes to Profile Verification ---
+router.post('/request-changes-profile/:pendingId', isAdminOrSuperAdmin, async (req, res) => {
+  const { adminComment } = req.body;
+
+  try {
+    const pending = await PendingProfileVerification.findById(req.params.pendingId).populate('userProfile');
+    if (!pending) return res.status(404).json({ message: 'Pending request not found.' });
+
+    pending.status = 'changes_requested';
+    pending.reviewedBy = req.user.id;
+    pending.adminComment = adminComment;
+    await pending.save();
+
+    pending.userProfile.isVerified = false;
+    pending.userProfile.verificationStatus = 'changes_requested';
+    pending.userProfile.adminComment = adminComment;
+    await pending.userProfile.save();
+
+    await sendEmail(
+      pending.userProfile.user.email,
+      'Profile Changes Requested - ProVoxHome',
+      `<p>Hey ${pending.userProfile.fullName},</p>
+       <p>🔍 We need a few changes before verifying your profile.</p>
+       <p>Requested Changes: ${adminComment}</p>
+       <p>Kindly update your profile and resubmit for verification.</p>
+       <p>Cheers,<br>ProVoxHome Team</p>`
+    );
+
+    await Notification.create({
+      user: pending.userProfile.user,
+      title: 'Profile Changes Requested ✏️',
+      description: `Admin requested changes to your profile. Reason: ${adminComment}`,
+      type: 'profile-verification'
+    });
+
+    res.status(200).json({ message: 'Changes requested and user notified.' });
+  } catch (error) {
+    console.error('Request Changes Profile Error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
 module.exports = router;
+
+
+
+
+
+
+
+
+
+
+// // server/routes/admin.js
+// // 🔵 Full Admin Routes: Invite Admin ➔ Signup ➔ Send OTP ➔ Verify OTP ➔ Create Admin
+
+// const express = require('express');
+// const router = express.Router();
+// const jwt = require('jsonwebtoken');
+// const AdminInvite = require('../models/AdminInvite');
+// const PendingAdmin = require('../models/PendingAdmin');
+// const Admin = require('../models/Admin');
+// const sendEmail = require('../utils/sendEmail');
+// const { isSuperOrAdmin } = require('../middleware/auth');
+
+// // --- Invite a New Admin (Protected Route) ---
+// router.post('/invite', isSuperOrAdmin, async (req, res) => {
+//   const { email } = req.body;
+//   const creatorId = req.user.id;
+
+//   try {
+//     if (!email) {
+//       return res.status(400).json({ message: 'Email is required.' });
+//     }
+
+//     const existingInvite = await AdminInvite.findOne({ email });
+//     if (existingInvite) {
+//       return res.status(400).json({ message: 'Admin invite already exists.' });
+//     }
+
+//     const existingAdmin = await Admin.findOne({ email });
+//     if (existingAdmin) {
+//       return res.status(400).json({ message: 'Admin already exists.' });
+//     }
+
+//     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+//     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+//     const newInvite = new AdminInvite({
+//       email,
+//       code: inviteCode,
+//       expiresAt,
+//       createdBy: creatorId
+//     });
+
+//     await newInvite.save();
+
+//     const subject = 'ProVoxHome Admin Invitation';
+//     const htmlContent = `
+//       <h2>You're Invited to Become an Admin</h2>
+//       <p>Use the following invitation code during signup: <b>${inviteCode}</b></p>
+//       <p>This code expires in 24 hours.</p>
+//     `;
+
+//     await sendEmail(email, subject, htmlContent);
+
+//     res.status(200).json({ message: 'Admin invite sent successfully.' });
+//   } catch (error) {
+//     console.error('Invite Admin Error:', error);
+//     res.status(500).json({ message: 'Server error during invite.' });
+//   }
+// });
+
+// // --- Admin Signup: Request OTP ---
+// router.post('/signup', async (req, res) => {
+//   const { email, password, inviteToken } = req.body;
+
+//   try {
+//     if (!email || !password || !inviteToken) {
+//       return res.status(400).json({ message: 'All fields are required.' });
+//     }
+
+//     const invite = await AdminInvite.findOne({ email, code: inviteToken });
+//     if (!invite) {
+//       return res.status(400).json({ message: 'Invalid invitation.' });
+//     }
+
+//     if (invite.expiresAt < new Date()) {
+//       await AdminInvite.deleteOne({ _id: invite._id });
+//       return res.status(400).json({ message: 'Invitation expired.' });
+//     }
+
+//     const existingAdmin = await Admin.findOne({ email });
+//     if (existingAdmin) {
+//       return res.status(400).json({ message: 'Admin already exists.' });
+//     }
+
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+//     const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+//     await PendingAdmin.deleteOne({ email });
+
+//     const pendingAdmin = new PendingAdmin({
+//       email,
+//       password,
+//       otp,
+//       otpExpiresAt
+//     });
+
+//     await pendingAdmin.save();
+
+//     const subject = 'ProVoxHome Admin OTP Verification';
+//     const htmlContent = `
+//       <h2>Verify Your Admin Signup</h2>
+//       <p>Your OTP is: <b>${otp}</b></p>
+//       <p>This OTP will expire in 10 minutes.</p>
+//     `;
+
+//     await sendEmail(email, subject, htmlContent);
+
+//     res.status(200).json({ message: 'OTP sent to your email.' });
+//   } catch (error) {
+//     console.error('Signup Error:', error);
+//     res.status(500).json({ message: 'Server error during signup.' });
+//   }
+// });
+
+// // --- Admin Verify OTP ---
+// router.post('/verify-otp', async (req, res) => {
+//   const { email, otp } = req.body;
+
+//   try {
+//     if (!email || !otp) {
+//       return res.status(400).json({ message: 'Email and OTP are required.' });
+//     }
+
+//     const pendingAdmin = await PendingAdmin.findOne({ email, otp });
+//     if (!pendingAdmin) {
+//       return res.status(400).json({ message: 'Invalid OTP or email.' });
+//     }
+
+//     if (pendingAdmin.otpExpiresAt < new Date()) {
+//       await PendingAdmin.deleteOne({ _id: pendingAdmin._id });
+//       return res.status(400).json({ message: 'OTP expired. Please signup again.' });
+//     }
+
+//     const finalAdmin = new Admin({
+//       email: pendingAdmin.email,
+//       password: pendingAdmin.password
+//     });
+
+//     await finalAdmin.save();
+//     await PendingAdmin.deleteOne({ _id: pendingAdmin._id });
+//     await AdminInvite.deleteOne({ email: pendingAdmin.email });
+
+//     res.status(201).json({ message: 'Admin account created successfully. You can now login.' });
+//   } catch (error) {
+//     console.error('OTP Verification Error:', error);
+//     res.status(500).json({ message: 'Server error during OTP verification.' });
+//   }
+// });
+
+// // --- Admin Login ---
+
+
+// router.post('/login', async (req, res) => {
+//   const { email, password } = req.body;
+
+//   try {
+//     if (!email || !password) {
+//       return res.status(400).json({ message: 'Email and Password are required.' });
+//     }
+
+//     const admin = await Admin.findOne({ email });
+//     if (!admin) {
+//       return res.status(400).json({ message: 'Invalid credentials.' });
+//     }
+
+//     const isMatch = await admin.matchPassword(password);
+//     if (!isMatch) {
+//       return res.status(400).json({ message: 'Invalid credentials.' });
+//     }
+
+//     // Create JWT Token
+//     const token = jwt.sign(
+//       { id: admin._id, role: 'admin' }, 
+//       process.env.JWT_SECRET, 
+//       { expiresIn: '7d' } // Token valid for 7 days
+//     );
+
+//     res.status(200).json({ token, message: 'Login successful.' });
+//   } catch (error) {
+//     console.error('Admin Login Error:', error);
+//     res.status(500).json({ message: 'Server error during login.' });
+//   }
+// });
+
+
+// module.exports = router;
 
 
 // // server/routes/admin.js

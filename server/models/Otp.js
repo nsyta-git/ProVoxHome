@@ -14,7 +14,7 @@ const OtpSchema = new mongoose.Schema({
   },
   purpose: {
     type: String,
-    enum: ['verifyEmail', 'resetPassword'],
+    enum: ['verifyEmail', 'resetPassword','profileUpdation'],
     required: true
   },
   expiresAt: {

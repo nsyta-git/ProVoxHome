@@ -1,17 +1,30 @@
-//server/ middleware/auth.js
-const jwt = require('jsonwebtoken');
 
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Access Denied' });
+// server/middleware/authMiddleware.js
+
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+// Middleware to authenticate user
+exports.authenticateUser = async (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ message: 'No token provided' });
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified; // contains userId
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.userId);
+    if (!req.user) return res.status(401).json({ message: 'User not found' });
     next();
-  } catch (err) {
-    res.status(400).json({ message: 'Invalid Token' });
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid token' });
   }
 };
 
-module.exports = verifyToken;
+// Middleware to authorize roles
+exports.authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    next();
+  };
+};

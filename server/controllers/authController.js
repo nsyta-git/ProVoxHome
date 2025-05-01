@@ -1,4 +1,3 @@
-// server/controllers/authController.js
 
 // server/controllers/authController.js
 const User = require('../models/User');
@@ -162,6 +161,17 @@ exports.resendOtp = async (req, res) => {
   }
 };
 
+// Get Logged In User Info
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('-passwordHash');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch user', error: err.message });
+  }
+};
 
 
 

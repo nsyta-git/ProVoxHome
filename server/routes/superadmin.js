@@ -33,7 +33,42 @@ router.post('/signup', async (req, res) => {
   module.exports = router;
 
 
-// router.post('/signup', async (req, res) => {
+
+
+// SuperAdmin Login
+// SUPERADMIN LOGIN (THE NEW PART)
+
+router.post('/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+  
+      const superAdmin = await SuperAdmin.findOne({ email });
+      if (!superAdmin) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+  
+      const isMatch = await bcrypt.compare(password, superAdmin.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+  
+      const token = jwt.sign(
+        { userId: superAdmin._id, role: 'superadmin', email: superAdmin.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      
+  
+      res.status(200).json({ message: 'Login successful', token });
+    } catch (err) {
+      console.error('Login Error:', err);
+      res.status(500).json({ message: 'Server error during login' });
+    }
+  });
+
+  module.exports = router;
+
+  // router.post('/signup', async (req, res) => {
 //   try {
 //     const { email, password, secret } = req.body;
 
@@ -55,36 +90,6 @@ router.post('/signup', async (req, res) => {
 //     res.status(500).json({ message: 'Server error.' });
 //   }
 // });
-
-// SuperAdmin Login
-// SUPERADMIN LOGIN (THE NEW PART)
-
-router.post('/login', async (req, res) => {
-    try {
-      const { email, password } = req.body;
-  
-      const superAdmin = await SuperAdmin.findOne({ email });
-      if (!superAdmin) {
-        return res.status(400).json({ message: 'Invalid credentials' });
-      }
-  
-      const isMatch = await bcrypt.compare(password, superAdmin.password);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid credentials' });
-      }
-  
-      const token = jwt.sign(
-        { id: superAdmin._id, role: 'superadmin' },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-  
-      res.status(200).json({ message: 'Login successful', token });
-    } catch (err) {
-      console.error('Login Error:', err);
-      res.status(500).json({ message: 'Server error during login' });
-    }
-  });
 
 // router.post('/login', async (req, res) => {
 //   try {
@@ -112,5 +117,5 @@ router.post('/login', async (req, res) => {
 //   }
 // });
 
-module.exports = router;
+
 
